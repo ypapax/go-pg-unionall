@@ -85,8 +85,8 @@ func TestUnionAll(t *testing.T) {
 			return
 		}
 	}
-	var compSelect []Customer
-	q0 := db.Model(&compSelect).Where("name = ?", name0)
+	var model []Customer
+	q0 := db.Model(&model).Where("name = ?", name0)
 	q0Initial := q0.Clone()
 	var q0InitalResult []Customer
 	if err := q0Initial.Select(&q0InitalResult); !as.NoError(err) {
@@ -95,7 +95,7 @@ func TestUnionAll(t *testing.T) {
 	if !as.Len(q0InitalResult, 1, "by name '%s'", name0) {
 		return
 	}
-	q1 := db.Model(&compSelect).Where("name = ?", name1)
+	q1 := db.Model(&model).Where("name = ?", name1)
 	var result []Customer
 	if err := q0.UnionAll(q1).Select(&result); !as.NoError(err) {
 		return
