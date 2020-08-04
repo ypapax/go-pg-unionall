@@ -8,6 +8,4 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.2.2
 	github.com/tjarratt/babble v0.0.0-20140317234543-2cf06e8d98b0
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47 // indirect
-	gopkg.in/yaml.v2 v2.2.4 // indirect
 )
