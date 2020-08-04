@@ -166,6 +166,59 @@ func TestUnionAllCycle(t *testing.T) {
 	t.Logf("result: %+v", result)
 }
 
+func TestUnionAllCycleResultInModel(t *testing.T) {
+	as := assert.New(t)
+	count := 10
+	var customers []*Customer
+	for i := 0; i<count; i++ {
+		name := fmt.Sprintf("customer %+v", i) + babbler.Babble()
+		c := &Customer{Name: name}
+		customers = append(customers, c)
+		if !as.NoError(db.Insert(c)) {
+			return
+		}
+	}
+	com := &Company{
+		Name:      babbler.Babble(),
+		Customers: customers,
+	}
+	if !as.NoError(db.Insert(com)) {
+		return
+	}
+	for _, cus := range customers {
+		companyCustomer := &CompanyCustomer{CompanyID: com.ID, CustomerID: cus.ID}
+		if err := db.Insert(companyCustomer); !as.NoError(err) {
+			return
+		}
+	}
+	var model []Customer
+	q := db.Model(&model)
+	var qUnion *orm.Query
+	for i := 0; i<count; i++ {
+		qi := q.Clone().Where("name = ?", customers[i].Name)
+		if qUnion == nil {
+			qUnion = qi
+		} else {
+			qUnion.UnionAll(qi)
+		}
+	}
+
+
+	if err := qUnion.Order("name").Select(); !as.NoError(err) {
+		return
+	}
+	result := model
+	if !as.Len(result, count) {
+		return
+	}
+	for i := 0; i<count; i++ {
+		if !as.Equal(customers[i].Name, result[i].Name) {
+			return
+		}
+	}
+	t.Logf("result: %+v", result)
+}
+
 func connectToPostgresTimeout(connectionString string, timeout, retry time.Duration) (*pg.DB, error) {
 	var (
 		connectionError error
