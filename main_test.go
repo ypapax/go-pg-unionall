@@ -192,7 +192,7 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 		}
 	}
 	var model []Customer
-	q := db.Model(&model)
+	q := db.Model(&model).Relation("Companies")
 	var qUnion *orm.Query
 	for i := 0; i<count; i++ {
 		qi := q.Clone().Where("name = ?", customers[i].Name).Order("name")
@@ -203,7 +203,6 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 		}
 	}
 
-
 	if err := qUnion.Order("name").Select(); !as.NoError(err) {
 		return
 	}
@@ -213,6 +212,9 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 	}
 	for i := 0; i<count; i++ {
 		if !as.Equal(customers[i].Name, result[i].Name) {
+			return
+		}
+		if !as.Len(result[i].Companies, 1) {
 			return
 		}
 	}
