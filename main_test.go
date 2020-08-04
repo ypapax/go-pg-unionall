@@ -6,33 +6,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/go-pg/pg"
-	"github.com/go-pg/pg/orm"
+	"github.com/go-pg/pg/v9"
+	"github.com/go-pg/pg/v9/orm"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/tjarratt/babble"
 )
 
 type Company struct {
-	TableName struct{} `sql:"companies"`
+	tableName struct{} `pg:"companies"`
 	ID        int64
 	Name      string
 	Customers []*Customer `pg:",many2many:companies_customers"`
 }
 
 type Customer struct {
-	TableName struct{} `sql:"customers"`
+	tableName struct{} `pg:"customers"`
 	ID        int64
 	Name      string
 	Companies []*Company `pg:",many2many:companies_customers"`
 }
 
 type CompanyCustomer struct {
-	TableName  struct{} `sql:"companies_customers"`
-	CompanyID  int64    `sql:"company_id"`
-	CustomerID int64    `sql:"customer_id"`
+	tableName  struct{} `pg:"companies_customers"`
+	CompanyID  int64    `pg:"company_id"`
+	CustomerID int64    `pg:"customer_id"`
 }
 
 const (
@@ -59,11 +58,13 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestTwoCustomers(t *testing.T) {
+func TestUnionAll(t *testing.T) {
 	as := assert.New(t)
+	name0 := "customer 1" + babbler.Babble()
+	name1 := "customer 2" + babbler.Babble()
 	customers := []*Customer{
-		{Name: "customer 1" + babbler.Babble()},
-		{Name: "customer 2" + babbler.Babble()},
+		{Name: name0},
+		{Name: name1},
 	}
 	for _, cust := range customers {
 		if !as.NoError(db.Insert(cust)) {
@@ -84,67 +85,31 @@ func TestTwoCustomers(t *testing.T) {
 			return
 		}
 	}
-	var compSelect Company
-	if !as.NoError(db.Model(&compSelect).Column("Customers").Where("company.name = ?", com.Name).Select()) {
+	var compSelect []Customer
+	q0 := db.Model(&compSelect).Where("name = ?", name0)
+	q0Initial := q0.Clone()
+	var q0InitalResult []Customer
+	if err := q0Initial.Select(&q0InitalResult); !as.NoError(err) {
 		return
 	}
-	if !as.NotZero(compSelect.ID) {
+	if !as.Len(q0InitalResult, 1, "by name '%s'", name0) {
 		return
 	}
-	if !as.Len(compSelect.Customers, len(customers)) {
+	q1 := db.Model(&compSelect).Where("name = ?", name1)
+	var result []Customer
+	if err := q0.UnionAll(q1).Select(&result); !as.NoError(err) {
 		return
 	}
-
-	for i, c1 := range customers {
-		as.Equal(c1.Name, compSelect.Customers[i].Name)
-	}
-}
-
-func TestTwoCompanies(t *testing.T) {
-	as := assert.New(t)
-	companies := []*Company{
-		{Name: "company 1" + babbler.Babble()},
-		{Name: "company 2" + babbler.Babble()},
-	}
-	for _, comp := range companies {
-		if !as.NoError(db.Insert(comp)) {
-			return
-		}
-	}
-
-	cust := &Customer{
-		Name:      babbler.Babble(),
-		Companies: companies,
-	}
-	if !as.NoError(db.Insert(cust)) {
+	if !as.Len(result, 2) {
 		return
 	}
-	for _, com := range companies {
-		companyCustomer := &CompanyCustomer{CompanyID: com.ID, CustomerID: cust.ID}
-		if err := db.Insert(companyCustomer); !as.NoError(err) {
-			return
-		}
-	}
-	var custSelect Customer
-	if !as.NoError(db.Model(&custSelect).Column("Companies").Where("customer.name = ?", cust.Name).Select()) {
+	if !as.Equal(name0, result[0].Name) {
 		return
 	}
-	t.Logf("custSelect %+v", custSelect)
-	if !as.Equal(cust.Name, custSelect.Name) {
+	if !as.Equal(name1, result[1].Name) {
 		return
 	}
-	if !as.NotZero(custSelect.ID) {
-		return
-	}
-	if !as.Len(custSelect.Companies, len(companies)) {
-		return
-	}
-	for i, c1 := range companies {
-		as.Equal(c1.Name, custSelect.Companies[i].Name)
-	}
-	for _, comp := range custSelect.Companies {
-		t.Logf("company %+v", comp)
-	}
+	t.Logf("result: %+v", result)
 }
 
 func connectToPostgresTimeout(connectionString string, timeout, retry time.Duration) (*pg.DB, error) {

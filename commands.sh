@@ -7,6 +7,10 @@ run() {
   docker-compose up
 }
 
+test(){
+  go test -v
+}
+
 rerun() {
   set +e
   docker kill postgres
