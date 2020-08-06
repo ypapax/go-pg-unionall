@@ -196,7 +196,7 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 	q := db.Model(&model).Relation("Companies")
 	var qUnion *orm.Query
 	for i := 0; i<count; i++ {
-		qi := q.Clone().Where("name = ?", customers[i].Name).Order("name")
+		qi := q.Clone().Where("name = ?", customers[i].Name).Order("name desc")
 		if qUnion == nil {
 			qUnion = qi
 		} else {
@@ -204,7 +204,7 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 		}
 	}
 
-	if err := qUnion.Order("name").Select(); !as.NoError(err) {
+	if err := qUnion.Clone().Order("name").Limit(5).Select(); !as.NoError(err) {
 		return
 	}
 	result := model
