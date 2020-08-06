@@ -44,6 +44,7 @@ var connectionString string
 var db *pg.DB
 
 func TestMain(m *testing.M) {
+	logrus.SetLevel(logrus.TraceLevel)
 	flag.StringVar(&connectionString, "postgres", "postgres://postgres:postgres@localhost:5439/customers?sslmode=disable", "connection string for postgres")
 	flag.Parse()
 	babbler.Separator = " "
@@ -258,6 +259,10 @@ func connectToPostgres(connectionString string) (*pg.DB, error) {
 	if err != nil {
 		err = errors.WithStack(err)
 		return nil, err
+	}
+
+	if err := AddDbLogger(db, true, connectionString); err != nil {
+		return db, errors.WithStack(err)
 	}
 
 	return db, nil
