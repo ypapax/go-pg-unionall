@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestUnionAll(t *testing.T) {
+func TestUnionAll1Minimal(t *testing.T) {
 	as := assert.New(t)
 	name0 := "customer 1" + babbler.Babble()
 	name1 := "customer 2" + babbler.Babble()
@@ -88,7 +88,53 @@ func TestUnionAll(t *testing.T) {
 		}
 	}
 	var model []Customer
-	q0 := db.Model(&model).Where("name = ?", name0)
+	q0 := db.Model(&model).Where("name = ?", name0).Limit(1)
+	q1 := db.Model(&model).Where("name = ?", name1).Limit(3)
+	var result []Customer
+	if err := q0.UnionAll(q1).Limit(2).Select(&result); !as.NoError(err) {
+		return
+	}
+	if !as.Len(result, 2) {
+		return
+	}
+	if !as.Equal(name0, result[0].Name) {
+		return
+	}
+	if !as.Equal(name1, result[1].Name) {
+		return
+	}
+	t.Logf("result: %+v", result)
+}
+
+func TestUnionAll1(t *testing.T) {
+	as := assert.New(t)
+	name0 := "customer 1" + babbler.Babble()
+	name1 := "customer 2" + babbler.Babble()
+	customers := []*Customer{
+		{Name: name0},
+		{Name: name1},
+	}
+	for _, cust := range customers {
+		if !as.NoError(db.Insert(cust)) {
+			return
+		}
+	}
+
+	com := &Company{
+		Name:      babbler.Babble(),
+		Customers: customers,
+	}
+	if !as.NoError(db.Insert(com)) {
+		return
+	}
+	for _, cus := range customers {
+		companyCustomer := &CompanyCustomer{CompanyID: com.ID, CustomerID: cus.ID}
+		if err := db.Insert(companyCustomer); !as.NoError(err) {
+			return
+		}
+	}
+	var model []Customer
+	q0 := db.Model(&model).Where("name = ?", name0).Limit(1)
 	q0Initial := q0.Clone()
 	var q0InitalResult []Customer
 	if err := q0Initial.Select(&q0InitalResult); !as.NoError(err) {
@@ -99,7 +145,7 @@ func TestUnionAll(t *testing.T) {
 	}
 	q1 := db.Model(&model).Where("name = ?", name1)
 	var result []Customer
-	if err := q0.UnionAll(q1).Select(&result); !as.NoError(err) {
+	if err := q0.UnionAll(q1).Limit(2).Select(&result); !as.NoError(err) {
 		return
 	}
 	if !as.Len(result, 2) {
