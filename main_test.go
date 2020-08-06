@@ -88,13 +88,13 @@ func TestUnionAll1Minimal(t *testing.T) {
 		}
 	}
 	var model []Customer
-	q0 := db.Model(&model).Where("name = ?", name0).Limit(1)
+	q0 := db.Model(&model).Where("name = ?", name0).Limit(4)
 	q1 := db.Model(&model).Where("name = ?", name1).Limit(3)
 	var result []Customer
-	if err := q0.UnionAll(q1).Limit(2).Select(&result); !as.NoError(err) {
+	if err := q0.UnionAll(q1).Limit(1).Select(&result); !as.NoError(err) {
 		return
 	}
-	if !as.Len(result, 2) {
+	if !as.Len(result, 1) {
 		return
 	}
 	if !as.Equal(name0, result[0].Name) {
