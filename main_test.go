@@ -91,16 +91,13 @@ func TestUnionAll1Minimal(t *testing.T) {
 	q0 := db.Model(&model).Where("name = ?", name0).Limit(4)
 	q1 := db.Model(&model).Where("name = ?", name1).Limit(3)
 	var result []Customer
-	if err := q0.UnionAll(q1).Limit(1).Select(&result); !as.NoError(err) {
+	if err := db.Model().With("union_q", q0.UnionAll(q1)).Table("union_q").Order("id").Limit(1).Select(&result); !as.NoError(err) {
 		return
 	}
 	if !as.Len(result, 1) {
 		return
 	}
-	if !as.Equal(name0, result[0].Name) {
-		return
-	}
-	if !as.Equal(name1, result[1].Name) {
+	if !as.Equal(name0, result[0].Name, "for result: %+v", result[0]) {
 		return
 	}
 	t.Logf("result: %+v", result)
