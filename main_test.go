@@ -267,6 +267,7 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 	t.Logf("result: %+v", result)
 }
 
+// This ignores .Relation("something")
 func UnionAll(db *pg.DB, ctx context.Context, queries ...orm.Query) (*orm.Query, error) {
 	if len(queries) == 0 {
 		return nil, errors.Errorf("missing input queries")
