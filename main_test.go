@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/go-pg/pg/v9"
+	"math"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/go-pg/pg/v9"
 	"github.com/go-pg/pg/v9/orm"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -257,6 +258,64 @@ func TestUnionAllCycleResultInModel(t *testing.T) {
 		return
 	}
 	for i := 0; i < limit; i++ {
+		if !as.Equal(customers[i].Name, result[i].Name) {
+			return
+		}
+		//if !as.Len(result[i].Companies, 1) {
+		//	return
+		//}
+	}
+	t.Logf("result: %+v", result)
+}
+
+func TestUnionAllOneMemberResultInModel(t *testing.T) {
+	as := assert.New(t)
+	count := 1
+	var customers []*Customer
+	for i := 0; i < count; i++ {
+		name := fmt.Sprintf("customer %+v", i) + babbler.Babble()
+		c := &Customer{Name: name}
+		customers = append(customers, c)
+		if !as.NoError(db.Insert(c)) {
+			return
+		}
+	}
+	com := &Company{
+		Name:      babbler.Babble(),
+		Customers: customers,
+	}
+	if !as.NoError(db.Insert(com)) {
+		return
+	}
+	for _, cus := range customers {
+		companyCustomer := &CompanyCustomer{CompanyID: com.ID, CustomerID: cus.ID}
+		if err := db.Insert(companyCustomer); !as.NoError(err) {
+			return
+		}
+	}
+	var model []Customer
+	q := db.Model(&model).Relation("Companies")
+	var queries []orm.Query
+	for i := 0; i < count; i++ {
+		qi := q.Clone().Where("name = ?", customers[i].Name).Order("name desc")
+		queries = append(queries, *qi)
+	}
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	limit := 5
+	qu, err := UnionAll(db, ctx, queries...)
+	if !as.NoError(err) {
+		return
+	}
+	var result []Customer
+	if err := qu.Order("name").Limit(limit).Select(&result); !as.NoError(err) {
+		return
+	}
+	expectedCount := int(math.Min(float64(limit), float64(count)))
+	if !as.True(len(result) == expectedCount, "expected to have length %+v instead of %+v",
+		limit, len(result)) {
+		return
+	}
+	for i := 0; i < expectedCount; i++ {
 		if !as.Equal(customers[i].Name, result[i].Name) {
 			return
 		}
