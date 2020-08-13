@@ -312,7 +312,7 @@ func TestUnionAllOneMemberResultInModel(t *testing.T) {
 	}
 	expectedCount := int(math.Min(float64(limit), float64(count)))
 	if !as.True(len(result) == expectedCount, "expected to have length %+v instead of %+v",
-		limit, len(result)) {
+		expectedCount, len(result)) {
 		return
 	}
 	for i := 0; i < expectedCount; i++ {
